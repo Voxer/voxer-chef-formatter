@@ -1,7 +1,7 @@
-Voxer Chef Formatter
-====================
+Voxer::Chef::Formatter
+======================
 
-Voxer's chef formatter
+Voxer's Chef Formatter improves the output of a chef-client or chef-solo run to be useful.
 
 Features
 --------
@@ -20,46 +20,25 @@ Note: this formatter is best used with log_level :warn
 Installation
 ------------
 
-Pull the formatter into your chef repository
+Add this line to your application's Gemfile:
 
-    mkdir -p formatters
-    curl https://raw.githubusercontent.com/Voxer/voxer-chef-formatter/master/voxer.rb > formatters/voxer.rb
-
-Now, configure it by adding some of these lines to your config.  At Voxer, we have this in
-`solo.rb`.
-
-
-``` ruby
-ENV['VOXER_FORMATTER_FILE'] ||= '/etc/chef/LAST-RUN'
-
-root_path     File.dirname(File.realpath(File.absolute_path(__FILE__)))
-add_formatter :voxer
-require       File.join(root_path, 'formatters/voxer')
+```ruby
+gem 'voxer-chef-formatter'
 ```
 
-License
--------
+And then execute:
 
-```
-The MIT License
+    $ bundle
 
-Copyright 2007-2014, Voxer, Inc
+Or install it yourself as:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+    $ gem install voxer-chef-formatter
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Contributing
+------------
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+1. Fork it ( https://github.com/[my-github-username]/voxer-chef-formatter/fork )
+2. Create your feature branch (`git checkout -b my-new-feature`)
+3. Commit your changes (`git commit -am 'Add some feature'`)
+4. Push to the branch (`git push origin my-new-feature`)
+5. Create a new Pull Request
