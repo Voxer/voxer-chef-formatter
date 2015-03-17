@@ -14,8 +14,45 @@ updates include
 - colorized diffs
 - file written to at the end with status information if `ENV['VOXER_FORMATTER_FILE']` is set
 - more verbose error messages
+- indentation to match depth of LWRP's (`use_inline_resources`)
 
 Note: this formatter is best used with log_level :warn
+
+Example
+-------
+
+```
+* reload[ssh]
+     - reload service service[ssh]
+
+* service[rsyslog]
+     - restart service service[rsyslog]
+
+* stud[example-stud-process]
+   * voxer_service[example-stud-process]
+      * smf_service[example-stud-process]
+         * file[/opt/local/share/smf/manifest/chef/application/network/example-stud-process.xml]
+              - update content in file /opt/local/share/smf/manifest/chef/application/network/example-stud-process.xml from a3ef5a to 498e4d
+
+                    --- /opt/local/share/smf/manifest/chef/application/network/example-stud-process.xml      2015-02-17 18:21:57.082839531 -0500
+                    +++ /opt/local/share/smf/manifest/chef/application/network/.example-stud-process.xml20150316-2553-q17bu2 2015-03-16 21:16:55.223940196 -0400
+                    @@ -25,7 +22,7 @@
+                             <exec_method type="method" name="stop" exec=":kill" timeout_seconds="30" />
+                             <template >
+                                 <common_name >
+                    -                <loctext xml:lang="C" >Lame Stud Process</loctext>
+                    +                <loctext xml:lang="C" >Cool Stud Process</loctext>
+                                 </common_name>
+                             </template>
+                         </service>
+
+         * execute[Import SMF Manifest for application/network/example-stud-process]
+              - execute ["svccfg", "import", "/opt/local/share/smf/manifest/chef/application/network/example-stud-process.xml"]
+```
+
+From the above example you can see that at Voxer we have a couple LWRP's that call other LWRP's.
+In this example `stud` calls `voxer_service` calls `smf_service` calls `file`.  Instead of showing
+all of these on the same level, this formatter indents them to show the hierarchy.
 
 Installation
 ------------

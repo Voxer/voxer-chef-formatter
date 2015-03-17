@@ -21,12 +21,29 @@ require 'chef/formatters/base'
 class Chef
   module Formatters
     class Voxer < Formatters::Base
-      cli_name(:voxer)
+      cli_name :voxer
 
-      COLOR_RED = "\e[31m"
-      COLOR_GREEN = "\e[32m"
-      COLOR_MAGENTA = "\e[35m"
-      COLOR_RESET = "\e[0m"
+      def initialize(out, err)
+        super
+        @updated_resources = 0
+        @start_time = Time.now
+        @updates_by_resource = Hash.new {|h, k| h[k] = []}
+
+        @context_stack = []
+        @context_resource = {}
+
+        if Chef::Config[:color] then
+          @color_red = "\e[31m"
+          @color_green = "\e[32m"
+          @color_magenta = "\e[35m"
+          @color_reset = "\e[0m"
+        else
+          @color_red = ''
+          @color_green = ''
+          @color_magenta = ''
+          @color_reset = ''
+        end
+      end
 
       def initialize(out, err)
         super
@@ -114,6 +131,8 @@ class Chef
       end
 
       # Called before unneeded cookbooks are removed
+      #--
+      # TODO: Should be called in CookbookVersion.sync_cookbooks
       def cookbook_clean_start
       end
 
@@ -157,10 +176,10 @@ class Chef
       end
 
       def file_load_failed(path, exception)
-        puts COLOR_RED
+        puts @color_red
         puts "failed to load file --> #{path}"
         puts "                    --> #{exception}"
-        puts COLOR_RESET
+        puts @color_reset
         super
       end
 
@@ -180,6 +199,19 @@ class Chef
 
       # Called before action is executed on a resource.
       def resource_action_start(resource, action, notification_type=nil, notifier=nil)
+        id = "#{resource.resource_name}[#{resource.name}]"
+        rcid = resource.run_context.object_id
+        @context_resource[rcid] = id
+
+        # find out how deep we are by looking for unique run_contexts
+        index = @context_stack.index rcid
+        if index then
+          @context_stack = @context_stack.slice(0, index + 1)
+        else
+          @context_stack << rcid
+        end
+
+        #puts "#{@context_stack.length} -> #{resource.resource_name}[#{resource.name}] - #{action}"
       end
 
       # Called when a resource fails, but will retry.
@@ -188,9 +220,9 @@ class Chef
 
       # Called when a resource fails and will not be retried.
       def resource_failed(resource, action, exception)
-        puts COLOR_RED
+        puts @color_red
         puts "failed to handle resource --> :#{action} #{resource}"
-        puts COLOR_RESET
+        puts @color_reset
         puts "#{exception}"
       end
 
@@ -221,20 +253,35 @@ class Chef
       def resource_updated(resource, action)
         @updated_resources += 1
 
-        puts "* #{resource.to_s}"
+        return if @updates_by_resource[resource.name].empty?
+
+        indent = ''
+        skip = true
+        @context_stack.each do |rcid|
+          name = @context_resource[rcid]
+
+          if name then
+            puts "#{indent}* #{name}"
+            skip = false
+          end
+
+          @context_resource.delete rcid
+          indent += '   '
+        end
+        return if skip
+
         @updates_by_resource[resource.name].each do |update|
           u = Array(update)
 
           # print what happened in green
-          puts "#{COLOR_GREEN}  - #{u[0]}#{COLOR_RESET}"
+          puts "#{indent}#{@color_green}  - #{u[0]}#{@color_reset}"
 
           if u[1].is_a?(Array) then
             # most likely a diff
-            puts ''
-            puts colorize_diff(u[1]).join("\n")
+            puts "#{indent}\n" + colorize_diff(u[1]).map { |l| indent + l }.join("\n")
           end
         end
-        puts ''
+        puts "#{indent}\n"
       end
 
       # Called before handlers run
@@ -262,18 +309,17 @@ class Chef
         diff.map do |l|
           f = '        '
           if l.start_with?('-') then
-            f += COLOR_RED
+            f += @color_red
           elsif l.start_with?('+') then
-            f += COLOR_GREEN
+            f += @color_green
           elsif l.start_with?('@') then
-            f += COLOR_MAGENTA
+            f += @color_magenta
           end
           f += l
-          f += COLOR_RESET
+          f += @color_reset
           f
         end
       end
-
     end
   end
 end
