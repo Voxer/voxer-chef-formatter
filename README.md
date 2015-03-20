@@ -12,11 +12,12 @@ updates include
 
 - live updates as resources are updated (output isn't queued until the end of the run)
 - colorized diffs
-- file written to at the end with status information if `ENV['VOXER_FORMATTER_FILE']` is set
 - more verbose error messages
 - indentation to match depth of LWRP's (`use_inline_resources`)
+- file written to at the end with status information if `ENV['VOXER_FORMATTER_FILE']` is set
+- syslog line generated when chef runs successfully if `ENV['VOXER_FORMATTER_SYSLOG']` is set
 
-Note: this formatter is best used with log_level :warn
+Note: this formatter is best used with `log_level` :warn
 
 Example
 -------
@@ -65,14 +66,17 @@ Pull the formatter into your chef repository
 Now, configure it by adding some of these lines to your config.  At Voxer, we have this in
 `solo.rb`.
 
-
 ``` ruby
-ENV['VOXER_FORMATTER_FILE'] ||= '/etc/chef/LAST-RUN'
+ENV['VOXER_FORMATTER_FILE']   ||= '/etc/chef/LAST-RUN'
+ENV['VOXER_FORMATTER_SYSLOG'] ||= '1'
 
 root_path     File.dirname(File.realpath(File.absolute_path(__FILE__)))
 add_formatter :voxer
 require       File.join(root_path, 'formatters/voxer')
 ```
+
+Note that this formatter assumes `root_path` is set in the chef config
+to the path of the chef directory
 
 License
 -------
@@ -80,7 +84,7 @@ License
 ```
 The MIT License
 
-Copyright 2007-2014, Voxer, Inc
+Copyright 2007-2015, Voxer, Inc
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

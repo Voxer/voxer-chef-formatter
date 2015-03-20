@@ -6,17 +6,23 @@
 # updates include
 #  - live updates as resources are updated
 #  - colorized diff
-#  - file written to at the end with status information if `ENV['VOXER_FORMATTER_FILE']` is set
 #  - more verbose error messages
+#  - indentation to match depth of LWRP's (`use_inline_resources`)
+#  - file written to at the end with status information if `ENV['VOXER_FORMATTER_FILE']` is set
+#  - syslog line generated when chef runs successfully if `ENV['VOXER_FORMATTER_SYSLOG']` is set
 #
 # This formatter is best used with log_level :warn
 #
 # Author:: Dave Eddy <dave@daveeddy.com>
-# Copyright:: Copyright (c) 2007-2014, Voxer LLC
+# Copyright:: Copyright (c) 2007-2015, Voxer LLC
 # License:: MIT
 #
 
 require 'chef/formatters/base'
+require 'chef/mixin/shell_out'
+require 'syslog'
+
+include Chef::Mixin::ShellOut
 
 class Chef
   module Formatters
@@ -25,13 +31,18 @@ class Chef
 
       def initialize(out, err)
         super
-        @updated_resources = 0
         @start_time = Time.now
+        @root_path = Chef::Config[:root_path]
+
+        # record resources that are updated
+        @updated_resources = 0
         @updates_by_resource = Hash.new {|h, k| h[k] = []}
 
+        # keep track of how deep we are (LWRP)
         @context_stack = []
         @context_resource = {}
 
+        # enable color
         if Chef::Config[:color] then
           @color_red = "\e[31m"
           @color_green = "\e[32m"
@@ -45,43 +56,60 @@ class Chef
         end
       end
 
-      def initialize(out, err)
-        super
-        @start_time = Time.now
-        @updated_resources = 0
-        @updates_by_resource = Hash.new { |h, k| h[k] = [] }
-      end
-
       # Called at the very start of a Chef Run
       def run_start(version)
-        puts "starting chef, version #{version}"
+        puts "starting chef in #{@root_path}, version #{version}"
       end
 
       # Called at the end of the Chef run.
       def run_completed(node)
-        chef_dir = Chef::Config[:root_path]
         now = Time.now
         elapsed = (now - @start_time).round(2)
-        file = ENV['VOXER_FORMATTER_FILE']
-        unless file.nil?
-          data = {
-            :finished => now,
-            :elapsed => elapsed,
-            :dir => chef_dir,
-            :git => {
-              :branch => `git --git-dir #{chef_dir}/.git rev-parse --abbrev-ref HEAD 2>&1`.strip,
-              :commit => `git --git-dir #{chef_dir}/.git rev-parse HEAD 2>&1`.strip
-            }
+
+        gb = shell_out_wrapper(%W[git --git-dir #{@root_path}/.git rev-parse --abbrev-ref HEAD])
+        gc = shell_out_wrapper(%W[git --git-dir #{@root_path}/.git rev-parse HEAD])
+
+        data = {
+          :user => ENV['SUDO_USER'] || ENV['USER'],
+          :finished => now,
+          :elapsed => elapsed,
+          :dir => @root_path,
+          :updated_resources => @updated_resources,
+          :git => {
+            :branch => gb,
+            :commit => gc
           }
+        }
+
+        file = ENV['VOXER_FORMATTER_FILE']
+        if file then
           IO.write(file, JSON.pretty_generate(data) + "\n")
         end
+
+        if ENV['VOXER_FORMATTER_SYSLOG'] then
+          @log = Syslog.open('chef', Syslog::LOG_PID, Syslog::LOG_USER)
+          @log.info "chef run finished by #{data[:user]} in #{elapsed} seconds, #{@updated_resources} resources updated, branch #{gb} (#{gc})"
+        end
+
         puts "chef client finished. #{@updated_resources} resources updated, took #{elapsed} seconds"
       end
 
       # called at the end of a failed run
       def run_failed(exception)
-        elapsed = (Time.now - @start_time).round(2)
+        elapsed = Time.now - @start_time
         puts "chef client failed. #{@updated_resources} resources updated, took #{elapsed} seconds"
+      end
+
+      # shell_out_wrapper to capture (stdout || stderr) and any error
+      def shell_out_wrapper(args)
+        o = nil
+        begin
+          cmd = shell_out(args)
+          o = (cmd.stdout.empty? ? cmd.stderr : cmd.stdout).strip
+        rescue
+          o = "failed to run #{args.first}"
+        end
+        o
       end
 
       # Called right after ohai runs.
